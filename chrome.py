@@ -1,20 +1,22 @@
 from selenium import webdriver
+from twocaptcha import TwoCaptcha
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.ui import WebDriverWait
+from urllib.parse import urlparse, parse_qs
 #from selenium.webdriver import ActionChains
-#from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support import expected_conditions as EC
 import undetected_chromedriver as uc
-import pandas as pd
+#import pandas as pd
 import time
 from webdriver_manager.chrome import ChromeDriverManager
 
-
 TARGET_URLs = ["https://www.portalinmobiliario.com/arriendo/departamento/particular/las-condes-metropolitana", "https://www.portalinmobiliario.com/arriendo/departamento/particular/nunoa-metropolitana", "https://www.portalinmobiliario.com/arriendo/departamento/particular/providencia-metropolitana"]
-#LOGIN_URL = "https://www2.yapo.cl/login"
+LOGIN_URL = "https://www.mercadolibre.com/jms/mlc/lgz/msl/login/H4sIAAAAAAAEAzWOQQ7CMBAD_-JzBPcc-Ui0tE4bkZJqsyWgqn9HKeJo2R57Ry5Tegb7rITHyChbNjisWSwWXUIa4bFkONRk_MuhR0RloVEr_N45E8cbY9FOMt0IB9lsDjGXBv9bgkOqgW-jPiWHxvsrsbtRcu2NqcBjNlurv15ba5eFOshYcrorL0M_opxSNSr7tXPocIhSLZjK8IA_WccXNRkjxNwAAAA/user"
 
+api_key = 'd34b6cea5d999aea03766d376434a179'
 driver = uc.Chrome(driver_executable_path=ChromeDriverManager().install())
 driver.maximize_window()
 
@@ -29,7 +31,7 @@ address_path = '//*[@id="location"]/div/div[1]/div/p'
 parking_path = '//*[@id="technical_specifications"]/div/div[1]/table/tbody/tr[6]/td/span'
 description_path = '/html/body/app-root/adview-index/div/div[2]/div/div[1]/adview-description/div/p'
 contact_name_path = '/html/body/app-root/adview-index/div/div[2]/div/div[2]/div/adview-publisher/div/adview-user-avatar/div/div[2]/p'
-phone_btn_path = '/html/body/app-root/adview-index/div/div[2]/div/div[2]/div/adview-publisher/div/div[1]/adview-publisher-button/adview-phone-button/button'
+phone_btn_path = '//*[@id="grouped_main_actions"]/div/form/div/button'
 phone_num_path = '/html/body/app-root/adview-index/div/div[2]/div/div[2]/div/adview-publisher/div/div[1]/adview-publisher-button/adview-phone-button/div/img[2]'
 date_publication_path = '//*[@id="header"]/div/p'
 
@@ -45,20 +47,87 @@ contact_names = []
 phone_numbers = []
 date_publications = []
 
+def solve_captcha():
+    #set up the 2captcha solver
+    solver = TwoCaptcha(api_key)
+
+    url = driver.find_element(By.XPATH, '//*[@id="g-recaptcha"]/div/div/iframe').get_attribute('src')
+    parsed_url = urlparse(url)
+    query_params = parse_qs(parsed_url.query)
+    site_key =query_params["k"][0]
+    
+    # Solve the reCAPTCHA challenge using 2captcha
+    result = solver.recaptcha(site_key, driver.current_url)
+    print(result)
+        
+    # Inject the solution into the page and submit the form
+    driver.execute_script('document.getElementById("g-recaptcha-response").style.display = "block"')
+    driver.execute_script('document.getElementById("g-recaptcha-response").value = "{}";'.format(result['code']))
+    
+    time.sleep(30)
+
+    submit_btn = driver.find_element(By.XPATH, '//*[@id="login_user_form"]/div[2]/button')
+    submit_btn.click()
+    print("submit_btn")
+
+    time.sleep(30)
+
+    # Wait for the reCAPTCHA iframe to load
+    WebDriverWait(driver, 10).until(EC.frame_to_be_available_and_switch_to_it((By.XPATH, '//*[@id="g-recaptcha"]/div/div/iframe')))
+
+    check_btn = driver.find_element(By.XPATH, '//*[@id="recaptcha-anchor"]')
+    check_btn.click()
+    print("check_btn")
+
+    # Switch back to the default content
+    driver.switch_to.default_content()
+    
+    # try:
+    #     result = solver.recaptcha(site_key, driver.current_url)
+    #     print(result)
+        
+    #     # Inject the solution into the page and submit the form
+    #     driver.execute_script('document.getElementById("g-recaptcha-response").style.display = "block"')
+    #     driver.execute_script('document.getElementById("g-recaptcha-response").value = "{}";'.format(result['code']))
+    #     time.sleep(10)
+    #     print("recaptcha")
+
+    #     submit_btn = driver.find_element(By.XPATH, '//*[@id="login_user_form"]/div[2]/button')
+    #     submit_btn.click()
+    #     print("submit_btn")
+
+    #     check_btn = driver.find_element(By.XPATH, '//*[@id="recaptcha-anchor"]')
+    #     check_btn.click()
+    #     print("check_btn")
+    # except:
+    #     print("Recaptcha Error")
+
+    submit_btn = driver.find_element(By.XPATH, '//*[@id="login_user_form"]/div[2]/button')
+    submit_btn.click()
+
 def log_in():
     driver.get(LOGIN_URL)
     time.sleep(10)
-    email_field = driver.find_element(By.ID, 'email_input')
-    password_field = driver.find_element(By.ID, 'password_input')
-    
+
     email = "bastian@pluscapitalcl.com"
     password = "2023contodo"
-    
-    email_field.send_keys(email)
+
+    id_field = driver.find_element(By.ID, 'user_id')
+    id_field.send_keys(email)
+
+    submit_btn = driver.find_element(By.XPATH, '//*[@id="login_user_form"]/div[2]/button')
+    submit_btn.click()
+
+    time.sleep(50)
+    solve_captcha()
+    time.sleep(20)
+
+    password_field = driver.find_element(By.ID, 'password')
     password_field.send_keys(password)
     
-    login_btn = driver.find_element(By.XPATH, '//*[@id="submit_button"]')
+    login_btn = driver.find_element(By.XPATH, '//*[@id="action-complete"]')
     login_btn.click()
+
     time.sleep(10)
 
 
@@ -153,8 +222,7 @@ def scrape_eachlink(link):
         contact_names.append(contact_name)
         phone_numbers.append(phone_number)
         date_publications.append(date_publication)
-        add_expenses.append(add_expense)
-
+        
     except:
         print("cannot reach this url")
 
@@ -191,13 +259,13 @@ def scrape_site(url):
         scrape_eachlink(link)
     
     # #scrape_eachlink("https://new.yapo.cl/inmuebles/pieza-en-san-miguel_86589121")
-    # df = pd.DataFrame({'Name publication': name_publications, 'prices': prices, 'sqr meters': sqr_meters, 'number of bedrooms': number_bedrooms, 'number of bathrooms': number_bathrooms, 'address': addresses, 'parking': parkings, 'cellar': cellars, 'contact name': contact_names, 'phone number': phone_numbers, 'date of publication': date_publications, 'additional expenses': add_expenses})  # Create a DF with the lists
+    # df = pd.DataFrame({'Name publication': name_publications, 'prices': prices, 'sqr meters': sqr_meters, 'number of bedrooms': number_bedrooms, 'number of bathrooms': number_bathrooms, 'address': addresses, 'parking': parkings, 'cellar': cellars, 'contact name': contact_names, 'phone number': phone_numbers, 'date of publication': date_publications})  # Create a DF with the lists
 
     # with pd.ExcelWriter('result.xlsx') as writer:
     #     df.to_excel(writer, sheet_name='Sheet1')
 
 def main():
-    #log_in()
+    log_in()
 
     for url in TARGET_URLs:
         driver.get(url)
