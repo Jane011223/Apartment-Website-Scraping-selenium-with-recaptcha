@@ -31,9 +31,11 @@ sqr_meter_path = '//*[@id="highlighted_specs_res"]/div/div[1]/span'
 number_bedroom_path = '//*[@id="highlighted_specs_res"]/div/div[2]/span'
 number_bathroom_path = '//*[@id="highlighted_specs_res"]/div/div[3]/span'
 address_path = '//*[@id="location"]/div/div[1]/div/p'
-parking_path = '//*[@id="technical_specifications"]/div/div[1]/table/tbody/tr[6]/td/span'
-description_path = '/html/body/app-root/adview-index/div/div[2]/div/div[1]/adview-description/div/p'
-contact_name_path = '/html/body/app-root/adview-index/div/div[2]/div/div[2]/div/adview-publisher/div/adview-user-avatar/div/div[2]/p'
+
+parkingdiv_classname = 'ui-vpp-highlighted-specs__key-value__labels__key-value'
+
+description_path = '//*[@id="description"]/div/p'
+contact_name_path = '//*[@id="question"]'
 phone_btn_path = '//*[@id="grouped_main_actions"]/div/form/div/button'
 phone_num_path = '/html/body/app-root/adview-index/div/div[2]/div/div[2]/div/adview-publisher/div/div[1]/adview-publisher-button/adview-phone-button/div/img[2]'
 date_publication_path = '//*[@id="header"]/div/p'
@@ -193,9 +195,8 @@ def scrape_eachlink(link):
             name_publication = driver.find_element(By.XPATH, name_publication_path).get_attribute('innerHTML')
         except:
             print("No such name_publication element")
-
         try:
-            price = driver.find_element(By.XPATH, price_path).get_attribute('innerHTML')
+            price = driver.find_element(By.XPATH, priceunit_path).get_attribute('innerHTML') + driver.find_element(By.XPATH, price_path).get_attribute('innerHTML')
         except:
             print("No such price element")
 
@@ -220,7 +221,14 @@ def scrape_eachlink(link):
             print("No such address element")
 
         try:
-            parking = driver.find_element(By.XPATH, parking_path).get_attribute('innerHTML')
+            parking_divs = driver.find_elements(By.CLASS_NAME, parkingdiv_classname)
+            for i in range(len(parking_divs)):
+                parking_div = parking_divs[i]
+                parking_name = parking_div.find_elements(By.TAG_NAME, 'span')[0].get_attribute('innerHTML')
+                if(parking_name == 'Estacionamientos:')
+                    parking = parking_div.find_elements(By.TAG_NAME, 'span')[1].get_attribute('innerHTML')
+
+            print(parking)
         except:
             print("No such parking element")
 
@@ -230,7 +238,13 @@ def scrape_eachlink(link):
             print("No such description element")
 
         try:
-            contact_name = driver.find_element(By.XPATH, contact_name_path).get_attribute('innerHTML')
+            contact_string = driver.find_element(By.XPATH, contact_name_path).get_attribute('innerHTML')
+            print(contact_string)
+            strs = contact_string.split(",")
+            print(strs)
+            contact_name = strs[0].replace("Hola ")
+            print(contact_name)
+
         except:
             print("No such contact_name element")
 
