@@ -227,8 +227,8 @@ def scrape_eachlink(link):
                 parking_name = parking_div.find_elements(By.TAG_NAME, 'span')[0].get_attribute('innerHTML')
                 if(parking_name == 'Estacionamientos:')
                     parking = parking_div.find_elements(By.TAG_NAME, 'span')[1].get_attribute('innerHTML')
+                    break
 
-            print(parking)
         except:
             print("No such parking element")
 
@@ -239,12 +239,9 @@ def scrape_eachlink(link):
 
         try:
             contact_string = driver.find_element(By.XPATH, contact_name_path).get_attribute('innerHTML')
-            print(contact_string)
             strs = contact_string.split(",")
-            print(strs)
-            contact_name = strs[0].replace("Hola ")
-            print(contact_name)
-
+            contact_name = strs[0].replace("Hola ", "")
+            
         except:
             print("No such contact_name element")
 
