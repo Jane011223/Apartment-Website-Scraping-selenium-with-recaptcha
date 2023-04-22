@@ -10,7 +10,7 @@ from urllib.parse import urlparse, parse_qs
 #from selenium.webdriver import ActionChains
 from selenium.webdriver.support import expected_conditions as EC
 import undetected_chromedriver as uc
-#import pandas as pd
+import pandas as pd
 import time
 import requests
 from webdriver_manager.chrome import ChromeDriverManager
@@ -40,6 +40,9 @@ phone_btn_path = '//*[@id="grouped_main_actions"]/div/form/div/button'
 phone_num_path = '/html/body/app-root/adview-index/div/div[2]/div/div[2]/div/adview-publisher/div/div[1]/adview-publisher-button/adview-phone-button/div/img[2]'
 date_publication_path = '//*[@id="header"]/div/p'
 
+contact_recaptcha_iframe_path = '//*[@id="contact-info-recaptcha"]/div/div/iframe'
+login_recaptcha_iframe_path = '//*[@id="g-recaptcha"]/div/div/iframe'
+
 name_publications = []
 prices = []
 sqr_meters = []
@@ -52,36 +55,41 @@ contact_names = []
 phone_numbers = []
 date_publications = []
 
-def solve_anticaptcha():
-    url = driver.find_element(By.XPATH, '//*[@id="g-recaptcha"]/div/div/iframe').get_attribute('src')
-    parsed_url = urlparse(url)
-    query_params = parse_qs(parsed_url.query)
-    site_key =query_params["k"][0]
-    print(site_key)
+def solve_anticaptcha(iframe_xpath):
+    try:
+        url = driver.find_element(By.XPATH, iframe_xpath).get_attribute('src')
+        parsed_url = urlparse(url)
+        query_params = parse_qs(parsed_url.query)
+        site_key =query_params["k"][0]
+        print(site_key)
+        
+        solver = recaptchaV2EnterpriseProxyless()
+        solver.set_verbose(1)
+        solver.set_key(api_anticaptcha_key)
+        solver.set_website_url(driver.current_url)
+        solver.set_website_key(site_key)
+        # solver.set_enterprise_payload({"s": "sometoken"})
+
+        # Specify softId to earn 10% commission with your app.
+        # Get your softId here: https://anti-captcha.com/clients/tools/devcenter
+        solver.set_soft_id(0)
+
+        g_response = solver.solve_and_return_solution()
+        if g_response != 0:
+            print("g-response: "+ g_response)
+        else:
+            print("task finished with error "+solver.error_code)
+
+        # Inject the solution into the page and submit the form
+        driver.execute_script('document.getElementById("g-recaptcha-response").value = "{}";'.format(g_response))
+         
+        submit_btn = driver.find_element(By.XPATH, '//*[@id="login_user_form"]/div[2]/button')
+        submit_btn.click()
+        time.sleep(10)
+
+    except:
+        print("recaptcha error")
     
-    solver = recaptchaV2EnterpriseProxyless()
-    solver.set_verbose(1)
-    solver.set_key(api_anticaptcha_key)
-    solver.set_website_url(driver.current_url)
-    solver.set_website_key(site_key)
-    # solver.set_enterprise_payload({"s": "sometoken"})
-
-    # Specify softId to earn 10% commission with your app.
-    # Get your softId here: https://anti-captcha.com/clients/tools/devcenter
-    solver.set_soft_id(0)
-
-    g_response = solver.solve_and_return_solution()
-    if g_response != 0:
-        print("g-response: "+ g_response)
-    else:
-        print("task finished with error "+solver.error_code)
-
-    # Inject the solution into the page and submit the form
-    driver.execute_script('document.getElementById("g-recaptcha-response").value = "{}";'.format(g_response))
-     
-    submit_btn = driver.find_element(By.XPATH, '//*[@id="login_user_form"]/div[2]/button')
-    submit_btn.click()
-    time.sleep(10)
 
 def solve_twocaptcha():                                                             
     #set up the 2captcha solver
@@ -154,7 +162,7 @@ def log_in():
     submit_btn.click()
 
     time.sleep(50)
-    solve_anticaptcha()
+    solve_anticaptcha(login_recaptcha_iframe_path)
     
     submit_btn = driver.find_element(By.XPATH, '//*[@id="login_user_form"]/div[2]/button')
     submit_btn.click()
@@ -164,7 +172,7 @@ def log_in():
     password_field.send_keys(password)
 
     time.sleep(50)
-    solve_anticaptcha()
+    solve_anticaptcha(login_recaptcha_iframe_path)
 
     # login_btn = driver.find_element(By.XPATH, '//*[@id="action-complete"]')
     # login_btn.click()
@@ -253,13 +261,14 @@ def scrape_eachlink(link):
         try:
             phone_btn = driver.find_element(By.XPATH, phone_btn_path)
             phone_btn.click()
-            time.sleep(10)
+            time.sleep(50)
+
+            solve_anticaptcha(contact_recaptcha_iframe_path)
+
             phone_num_img = driver.find_element(By.XPATH, phone_num_path)
             phone_number = get_str_from_img(phone_num_img)
         except:
             print("Phone Number Error")
-        
-        print(phone_number)
         
         name_publications.append(name_publication)
         prices.append(price)
@@ -309,7 +318,7 @@ def scrape_site(url):
         scrape_eachlink(link)
     
     # #scrape_eachlink("https://new.yapo.cl/inmuebles/pieza-en-san-miguel_86589121")
-    # df = pd.DataFrame({'Name publication': name_publications, 'prices': prices, 'sqr meters': sqr_meters, 'number of bedrooms': number_bedrooms, 'number of bathrooms': number_bathrooms, 'address': addresses, 'parking': parkings, 'cellar': cellars, 'contact name': contact_names, 'phone number': phone_numbers, 'date of publication': date_publications})  # Create a DF with the lists
+    # df = pd.DataFrame({'Name publication': name_publications, 'prices': prices, 'sqr meters': sqr_meters, 'number of bedrooms': number_bedrooms, 'number of bathrooms': number_bathrooms, 'address': addresses, 'parking': parkings,  'contact name': contact_names, 'phone number': phone_numbers, 'date of publication': date_publications})  # Create a DF with the lists
 
     # with pd.ExcelWriter('result.xlsx') as writer:
     #     df.to_excel(writer, sheet_name='Sheet1')
