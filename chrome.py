@@ -1,4 +1,5 @@
 from selenium import webdriver
+from anticaptchaofficial.recaptchav2enterpriseproxyless import *
 from twocaptcha import TwoCaptcha
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
@@ -11,12 +12,14 @@ from selenium.webdriver.support import expected_conditions as EC
 import undetected_chromedriver as uc
 #import pandas as pd
 import time
+import requests
 from webdriver_manager.chrome import ChromeDriverManager
 
 TARGET_URLs = ["https://www.portalinmobiliario.com/arriendo/departamento/particular/las-condes-metropolitana", "https://www.portalinmobiliario.com/arriendo/departamento/particular/nunoa-metropolitana", "https://www.portalinmobiliario.com/arriendo/departamento/particular/providencia-metropolitana"]
 LOGIN_URL = "https://www.mercadolibre.com/jms/mlc/lgz/msl/login/H4sIAAAAAAAEAzWOQQ7CMBAD_-JzBPcc-Ui0tE4bkZJqsyWgqn9HKeJo2R57Ry5Tegb7rITHyChbNjisWSwWXUIa4bFkONRk_MuhR0RloVEr_N45E8cbY9FOMt0IB9lsDjGXBv9bgkOqgW-jPiWHxvsrsbtRcu2NqcBjNlurv15ba5eFOshYcrorL0M_opxSNSr7tXPocIhSLZjK8IA_WccXNRkjxNwAAAA/user"
 
-api_key = 'd34b6cea5d999aea03766d376434a179'
+api_twocaptcha_key = 'd34b6cea5d999aea03766d376434a179'
+api_anticaptcha_key = '3b939cd231a2d6e72d11d611076d82e4'
 driver = uc.Chrome(driver_executable_path=ChromeDriverManager().install())
 driver.maximize_window()
 
@@ -47,9 +50,40 @@ contact_names = []
 phone_numbers = []
 date_publications = []
 
-def solve_captcha():
+def solve_anticaptcha():
+    url = driver.find_element(By.XPATH, '//*[@id="g-recaptcha"]/div/div/iframe').get_attribute('src')
+    parsed_url = urlparse(url)
+    query_params = parse_qs(parsed_url.query)
+    site_key =query_params["k"][0]
+    print(site_key)
+    
+    solver = recaptchaV2EnterpriseProxyless()
+    solver.set_verbose(1)
+    solver.set_key(api_anticaptcha_key)
+    solver.set_website_url(driver.current_url)
+    solver.set_website_key(site_key)
+    # solver.set_enterprise_payload({"s": "sometoken"})
+
+    # Specify softId to earn 10% commission with your app.
+    # Get your softId here: https://anti-captcha.com/clients/tools/devcenter
+    solver.set_soft_id(0)
+
+    g_response = solver.solve_and_return_solution()
+    if g_response != 0:
+        print("g-response: "+ g_response)
+    else:
+        print("task finished with error "+solver.error_code)
+
+    # Inject the solution into the page and submit the form
+    driver.execute_script('document.getElementById("g-recaptcha-response").value = "{}";'.format(g_response))
+     
+    submit_btn = driver.find_element(By.XPATH, '//*[@id="login_user_form"]/div[2]/button')
+    submit_btn.click()
+    time.sleep(10)
+
+def solve_twocaptcha():                                                             
     #set up the 2captcha solver
-    solver = TwoCaptcha(api_key)
+    solver = TwoCaptcha(api_twocaptcha_key)
 
     url = driver.find_element(By.XPATH, '//*[@id="g-recaptcha"]/div/div/iframe').get_attribute('src')
     parsed_url = urlparse(url)
@@ -63,24 +97,23 @@ def solve_captcha():
     # Inject the solution into the page and submit the form
     driver.execute_script('document.getElementById("g-recaptcha-response").style.display = "block"')
     driver.execute_script('document.getElementById("g-recaptcha-response").value = "{}";'.format(result['code']))
-    
-    time.sleep(30)
+     
+    #time.sleep(30)
 
     submit_btn = driver.find_element(By.XPATH, '//*[@id="login_user_form"]/div[2]/button')
     submit_btn.click()
-    print("submit_btn")
 
-    time.sleep(30)
+    #time.sleep(10)
 
     # Wait for the reCAPTCHA iframe to load
-    WebDriverWait(driver, 10).until(EC.frame_to_be_available_and_switch_to_it((By.XPATH, '//*[@id="g-recaptcha"]/div/div/iframe')))
+    #WebDriverWait(driver, 10).until(EC.frame_to_be_available_and_switch_to_it((By.XPATH, '//*[@id="g-recaptcha"]/div/div/iframe')))
 
-    check_btn = driver.find_element(By.XPATH, '//*[@id="recaptcha-anchor"]')
-    check_btn.click()
-    print("check_btn")
+    #check_btn = driver.find_element(By.XPATH, '//*[@id="recaptcha-anchor"]')
+    #check_btn.click()
+    #print("check_btn")
 
     # Switch back to the default content
-    driver.switch_to.default_content()
+    #river.switch_to.default_content()
     
     # try:
     #     result = solver.recaptcha(site_key, driver.current_url)
@@ -119,16 +152,22 @@ def log_in():
     submit_btn.click()
 
     time.sleep(50)
-    solve_captcha()
-    time.sleep(20)
-
-    password_field = driver.find_element(By.ID, 'password')
-    password_field.send_keys(password)
+    solve_anticaptcha()
     
-    login_btn = driver.find_element(By.XPATH, '//*[@id="action-complete"]')
-    login_btn.click()
+    submit_btn = driver.find_element(By.XPATH, '//*[@id="login_user_form"]/div[2]/button')
+    submit_btn.click()
 
     time.sleep(10)
+    password_field = driver.find_element(By.ID, 'password')
+    password_field.send_keys(password)
+
+    time.sleep(50)
+    solve_anticaptcha()
+
+    # login_btn = driver.find_element(By.XPATH, '//*[@id="action-complete"]')
+    # login_btn.click()
+
+    time.sleep(30)
 
 
 def scrape_eachlink(link):
