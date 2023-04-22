@@ -42,6 +42,8 @@ date_publication_path = '//*[@id="header"]/div/p'
 
 contact_recaptcha_iframe_path = '//*[@id="contact-info-recaptcha"]/div/div/iframe'
 login_recaptcha_iframe_path = '//*[@id="g-recaptcha"]/div/div/iframe'
+submit_btn_xpath = '//*[@id="login_user_form"]/div[2]/button'
+whatsapp_btn_xpath = ''
 
 name_publications = []
 prices = []
@@ -55,7 +57,7 @@ contact_names = []
 phone_numbers = []
 date_publications = []
 
-def solve_anticaptcha(iframe_xpath):
+def solve_anticaptcha(iframe_xpath, btn_xpath):
     try:
         url = driver.find_element(By.XPATH, iframe_xpath).get_attribute('src')
         parsed_url = urlparse(url)
@@ -83,7 +85,7 @@ def solve_anticaptcha(iframe_xpath):
         # Inject the solution into the page and submit the form
         driver.execute_script('document.getElementById("g-recaptcha-response").value = "{}";'.format(g_response))
          
-        submit_btn = driver.find_element(By.XPATH, '//*[@id="login_user_form"]/div[2]/button')
+        submit_btn = driver.find_element(By.XPATH, btn_xpath)
         submit_btn.click()
         time.sleep(10)
 
@@ -162,7 +164,7 @@ def log_in():
     submit_btn.click()
 
     time.sleep(50)
-    solve_anticaptcha(login_recaptcha_iframe_path)
+    solve_anticaptcha(login_recaptcha_iframe_path, submit_btn_xpath)
     
     submit_btn = driver.find_element(By.XPATH, '//*[@id="login_user_form"]/div[2]/button')
     submit_btn.click()
@@ -172,7 +174,7 @@ def log_in():
     password_field.send_keys(password)
 
     time.sleep(50)
-    solve_anticaptcha(login_recaptcha_iframe_path)
+    solve_anticaptcha(login_recaptcha_iframe_path, submit_btn_xpath)
 
     # login_btn = driver.find_element(By.XPATH, '//*[@id="action-complete"]')
     # login_btn.click()
@@ -263,10 +265,14 @@ def scrape_eachlink(link):
             phone_btn.click()
             time.sleep(50)
 
-            solve_anticaptcha(contact_recaptcha_iframe_path)
+            solve_anticaptcha(contact_recaptcha_iframe_path, phone_btn_path)
+            url = driver.current_url
+            parsed_url = urlparse(url)
+            query_params = parse_qs(parsed_url.query)
+            phone_number =query_params["phone"][0]
+            print(phone_number)
+            time.sleep(50)
 
-            phone_num_img = driver.find_element(By.XPATH, phone_num_path)
-            phone_number = get_str_from_img(phone_num_img)
         except:
             print("Phone Number Error")
         
@@ -317,11 +323,10 @@ def scrape_site(url):
         link = links_array[j]
         scrape_eachlink(link)
     
-    # #scrape_eachlink("https://new.yapo.cl/inmuebles/pieza-en-san-miguel_86589121")
-    # df = pd.DataFrame({'Name publication': name_publications, 'prices': prices, 'sqr meters': sqr_meters, 'number of bedrooms': number_bedrooms, 'number of bathrooms': number_bathrooms, 'address': addresses, 'parking': parkings,  'contact name': contact_names, 'phone number': phone_numbers, 'date of publication': date_publications})  # Create a DF with the lists
+        df = pd.DataFrame({'Name publication': name_publications, 'prices': prices, 'sqr meters': sqr_meters, 'number of bedrooms': number_bedrooms, 'number of bathrooms': number_bathrooms, 'address': addresses, 'parking': parkings,  'contact name': contact_names, 'phone number': phone_numbers, 'date of publication': date_publications})  # Create a DF with the lists
 
-    # with pd.ExcelWriter('result.xlsx') as writer:
-    #     df.to_excel(writer, sheet_name='Sheet1')
+        with pd.ExcelWriter('result.xlsx') as writer:
+            df.to_excel(writer, sheet_name='Sheet1')
 
 def main():
     log_in()
